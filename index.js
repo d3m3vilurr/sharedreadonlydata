@@ -18,7 +18,7 @@ SharedReadOnlyData.prototype._insert = function _insert(key, element) {
 	var serializedBuffer = this.serialize(element);
 	var length = serializedBuffer.length;
 	
-	this.hints[key] = {cursor:this.cursor, length: 4 + length};
+	this.hints[key] = {cursor:this.cursor, length: length};
 
 	this.buffer = this.ensureBufferSize(this.cursor + 4 + length);
 	this.buffer.writeUInt32LE(length, this.cursor);
@@ -43,21 +43,16 @@ SharedReadOnlyData.prototype.freeze = function freeze() {
 };
 
 SharedReadOnlyData.prototype.__get__ = function (idx) {
-	var cursor;
-	var length;
+	var cursor = (this.hints[idx] || {}).cursor;
+	var length = (this.hints[idx] || {}).length;
+    
+    if (!cursor || !length) return;
 
 	if (!this.buffer) {
-		cursor = this.hints[idx].cursor;
-		length = this.hints[idx].length;
-		if (!cursor || !length) return;
-
-		var buffer = shm.readSHM(this.shmid, 8+cursor, length);
+		var buffer = shm.readSHM(this.shmid, 8+cursor, 4+length);
 		return this.deserialize(buffer, 0, length);
 
 	} else {
-		cursor = this.hints[idx].cursor;
-		if (!cursor) return;
-
 		length = this.buffer.readUInt32LE(cursor);
 		return this.deserialize(this.buffer, cursor, length);
 	}
