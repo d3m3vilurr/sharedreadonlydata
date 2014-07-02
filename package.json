@@ -1,0 +1,19 @@
+{
+    "name": "sharedreadonlydata",
+    "version": "0.0.1",
+    "description": "readonlydata on shared memory",
+    "main": "index.js",
+    "gypfile": true,
+    "scripts": {
+        "test": "node test.js"
+    },
+    "dependencies": {
+        "readonlydata": "0.2.0",
+        "crc-32": "0.2.1",
+        "shm": "0.1.0",
+        "aumutex": "https://github.com/jh0x4s/aumutex/tarball/master"
+    },
+    "devDependencies": {
+        "sleep": ""
+    }
+}

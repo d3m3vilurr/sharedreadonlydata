@@ -1,4 +1,4 @@
 sharedreadonlydata
 ==================
 
-readonlydata on shared memory
+readonlydata(https://github.com/heycalmdown/readonlydata) on shared memory
