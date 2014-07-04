@@ -27,16 +27,6 @@ SharedReadOnlyData.prototype._insert = function _insert(key, element) {
 	this.cursor += length;
 };
 
-SharedReadOnlyData.prototype.ensureBufferSize = function ensureBufferSize(size) {
-	if (this.buffer.length < size) {
-		var newBuffer = new Buffer(this.buffer.length * 2);
-		newBuffer.fill(0);
-		this.buffer.copy(newBuffer);
-		this.buffer = newBuffer;
-	}
-	return this.buffer;
-};
-
 SharedReadOnlyData.prototype.freeze = function freeze() {
 	this.checksum = crc32.buf(this.buffer);
 	return readonlydata.ReadOnlyData.prototype.freeze.apply(this, arguments);
@@ -135,8 +125,8 @@ SharedReadOnlyData.prototype.writeSHM = function () {
 		var buffer = new Buffer(8);
 		buffer.writeDoubleLE(self.checksum, 0);
 
-		if (!shm.writeSHM(shmid, buffer, 0, buffer.length)
-			|| !shm.writeSHM(shmid, self.buffer, 8, self.buffer.length)) {
+		if (!shm.writeSHM(shmid, self.buffer, 8, self.buffer.length)
+			|| !shm.writeSHM(shmid, buffer, 0, buffer.length)) {
 			console.error("shm.writeSHM error");
 			return;
 		}
