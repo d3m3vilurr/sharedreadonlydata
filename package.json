@@ -8,7 +8,6 @@
         "test": "node test.js"
     },
     "dependencies": {
-        "readonlydata": "",
         "crc-32": "0.2.1",
         "shm": "https://github.com/jh0x4s/node-shm/tarball/master",
         "aumutex": "https://github.com/jh0x4s/aumutex/tarball/master"
