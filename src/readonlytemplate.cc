@@ -91,8 +91,6 @@ public:
 
 	static Handle<Array> Enum(const AccessorInfo &info)  {
 		HandleScope scope;
-        
-        printf("[c] Enum\n");
 
 		Local<String> enumerator = String::New("__enum__");
 		Handle<Value> accessor = info.This()->GetRealNamedPropertyInPrototypeChain(enumerator);
