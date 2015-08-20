@@ -24,6 +24,8 @@ public:
 		NODE_SET_PROTOTYPE_METHOD(SuperClass, "create", CreateReadOnlyTemplate);
 
 		target->Set(String::NewSymbol("ReadOnlyTemplate"), SuperClass->GetFunction());
+
+		scope.Close(Handle<Value>(NULL));
 	}
 
 	ReadOnlyTemplate()
@@ -40,16 +42,16 @@ public:
 		ReadOnlyTemplate* hw = new ReadOnlyTemplate();
 		hw->Wrap(args.This());
 
-		return args.This();
+		return scope.Close(args.This());
 	}
 
 	static Handle<Value> GetByName(v8::Local<v8::String> name, const AccessorInfo &info) {
 		HandleScope scope;
-         
+
 		// Send real properties untouched
-		Local<Value> value =  scope.Close(info.This()->GetRealNamedProperty(name));
+		Local<Value> value =  info.This()->GetRealNamedProperty(name);
 		if (!value.IsEmpty()) {
-			return value;
+			return scope.Close(value);
 		}
 
 		Local<String> getter = String::New("__get__");
@@ -61,9 +63,9 @@ public:
 			Local<Value> argv[1];
 			argv[0] = name;
 			Local<Value> dynamicProperty = accessorFn->Call(info.This(), argc, argv);
-			return dynamicProperty;
+			return scope.Close(dynamicProperty);
 		} else {
-			return accessor;
+			return scope.Close(accessor);
 		}
 
 		return scope.Close(Handle<Value>(NULL));
@@ -80,14 +82,13 @@ public:
 			Local<Value> argv[1];
 			argv[0] = Number::New(index);
 			Local<Value> dynamicProperty = accessorFn->Call(info.This(), argc, argv);
-		    String::Utf8Value res2(dynamicProperty->ToString());
+			String::Utf8Value res2(dynamicProperty->ToString());
 			return scope.Close(dynamicProperty);
 		} else {
 			return scope.Close(accessor);
 		}
 		return scope.Close(Handle<Value>(NULL));
 	}
-    
 
 	static Handle<Array> Enum(const AccessorInfo &info)  {
 		HandleScope scope;
@@ -98,7 +99,7 @@ public:
 			Handle<Function> accessorFn = Handle<Function>(Function::Cast(*accessor));
 			int argc=0;
 			Local<Value> result = accessorFn->Call(info.This(), argc, NULL);
-			return Local<Array>::Cast(result);
+			return scope.Close(Local<Array>::Cast(result));
 		}
 		return scope.Close(Handle<Array>(NULL));
 	}
@@ -114,7 +115,7 @@ public:
 		SuperClass->SetClassName(String::NewSymbol("ReadOnlyTemplate"));
 		SuperClass->InstanceTemplate()->SetNamedPropertyHandler(GetByName, NULL, NULL, NULL, NULL);
 		SuperClass->InstanceTemplate()->SetIndexedPropertyHandler(GetByIndex, NULL, NULL, NULL, Enum);
-		return SuperClass->GetFunction();
+		return scope.Close(SuperClass->GetFunction());
 	}
 };
 
