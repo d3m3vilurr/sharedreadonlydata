@@ -1,9 +1,17 @@
 #include <iostream>
 #include <v8.h>
 #include <node.h>
+#include <nan.h>
 
 using namespace node;
 using namespace v8;
+
+#define NanReturn(value) { info.GetReturnValue().Set(value); return; }
+#define NanException(type, msg) \
+	Exception::type(Nan::New(msg).ToLocalChecked())
+#define NanThrowException(exc) { \
+	Nan::ThrowError(exc); NanReturn(Nan::Undefined()); \
+}
 
 class ReadOnlyTemplate: ObjectWrap
 {
@@ -11,21 +19,21 @@ private:
 
 public:
 
-	static Persistent<FunctionTemplate> SuperClass;
-	static void Init(Handle<Object> target)
+	static Nan::Persistent<Function> SuperClass;
+	static NAN_MODULE_INIT(Init)
 	{
-		HandleScope scope;
+		Nan::HandleScope scope;
 
-		Local<FunctionTemplate> t = FunctionTemplate::New(New);
+		Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
 
-		SuperClass = Persistent<FunctionTemplate>::New(t);
-		SuperClass->InstanceTemplate()->SetInternalFieldCount(1);
-		SuperClass->SetClassName(String::NewSymbol("ReadOnlyTemplate"));
-		NODE_SET_PROTOTYPE_METHOD(SuperClass, "create", CreateReadOnlyTemplate);
+		t->InstanceTemplate()->SetInternalFieldCount(1);
+		t->SetClassName(Nan::New("ReadOnlyTemplate").ToLocalChecked());
+		Nan::SetPrototypeMethod(t, "create", CreateReadOnlyTemplate);
 
-		target->Set(String::NewSymbol("ReadOnlyTemplate"), SuperClass->GetFunction());
+		SuperClass.Reset(t->GetFunction());
 
-		scope.Close(Handle<Value>(NULL));
+		target->Set(Nan::New("ReadOnlyTemplate").ToLocalChecked(),
+					t->GetFunction());
 	}
 
 	ReadOnlyTemplate()
@@ -36,93 +44,96 @@ public:
 	{
 	}
 
-	static Handle<Value> New(const Arguments& args)
+	static NAN_METHOD(New)
 	{
-		HandleScope scope;
+		Nan::HandleScope scope;
 		ReadOnlyTemplate* hw = new ReadOnlyTemplate();
-		hw->Wrap(args.This());
-
-		return scope.Close(args.This());
+		hw->Wrap(info.This());
+		NanReturn(info.This());
 	}
 
-	static Handle<Value> GetByName(v8::Local<v8::String> name, const AccessorInfo &info) {
-		HandleScope scope;
+	static NAN_PROPERTY_GETTER(GetByName)
+	{
+		Nan::HandleScope scope;
 
 		// Send real properties untouched
-		Local<Value> value =  info.This()->GetRealNamedProperty(name);
+		Local<Value> value = info.This()->GetRealNamedProperty(property);
 		if (!value.IsEmpty()) {
-			return scope.Close(value);
+			NanReturn(value);
 		}
 
-		Local<String> getter = String::New("__get__");
+		Local<String> getter = Nan::New("__get__").ToLocalChecked();
 
-		Handle<Value> accessor = info.This()->GetRealNamedPropertyInPrototypeChain(getter);
-		if (!accessor.IsEmpty() && accessor->IsFunction()) {
-			Handle<Function> accessorFn = Handle<Function>(Function::Cast(*accessor));
-			int argc=1;
-			Local<Value> argv[1];
-			argv[0] = name;
-			Local<Value> dynamicProperty = accessorFn->Call(info.This(), argc, argv);
-			return scope.Close(dynamicProperty);
-		} else {
-			return scope.Close(accessor);
+		Local<Value> accessor =
+			info.This()->GetRealNamedPropertyInPrototypeChain(getter);
+		if (accessor.IsEmpty() || !accessor->IsFunction()) {
+			NanReturn(accessor);
 		}
-
-		return scope.Close(Handle<Value>(NULL));
+		int argc = 1;
+		Local<Value> argv[1];
+		argv[0] = property;
+		Local<Value> dynProperty =
+			accessor.As<Function>()->Call(info.This(), argc, argv);
+		NanReturn(dynProperty);
 	}
 
-	static Handle<Value> GetByIndex(uint32_t index, const AccessorInfo &info) {
-		HandleScope scope;
-
-		Local<String> getter = String::New("__get__");
-		Handle<Value> accessor = info.This()->GetRealNamedPropertyInPrototypeChain(getter);
-		if (!accessor.IsEmpty() && accessor->IsFunction()) {
-			Handle<Function> accessorFn = Handle<Function>(Function::Cast(*accessor));
-			int argc=1;
-			Local<Value> argv[1];
-			argv[0] = Number::New(index);
-			Local<Value> dynamicProperty = accessorFn->Call(info.This(), argc, argv);
-			String::Utf8Value res2(dynamicProperty->ToString());
-			return scope.Close(dynamicProperty);
-		} else {
-			return scope.Close(accessor);
-		}
-		return scope.Close(Handle<Value>(NULL));
-	}
-
-	static Handle<Array> Enum(const AccessorInfo &info)  {
-		HandleScope scope;
-
-		Local<String> enumerator = String::New("__enum__");
-		Handle<Value> accessor = info.This()->GetRealNamedPropertyInPrototypeChain(enumerator);
-		if (!accessor.IsEmpty() && accessor->IsFunction()) {
-			Handle<Function> accessorFn = Handle<Function>(Function::Cast(*accessor));
-			int argc=0;
-			Local<Value> result = accessorFn->Call(info.This(), argc, NULL);
-			return scope.Close(Local<Array>::Cast(result));
-		}
-		return scope.Close(Handle<Array>(NULL));
-	}
-
-	static Handle<Value> CreateReadOnlyTemplate(const Arguments& args)
+	static NAN_INDEX_GETTER(GetByIndex)
 	{
-		HandleScope scope;
+		Nan::HandleScope scope;
 
-		Local<FunctionTemplate> t = FunctionTemplate::New(New);
+		Local<String> getter = Nan::New("__get__").ToLocalChecked();
 
-		SuperClass = Persistent<FunctionTemplate>::New(t);
-		SuperClass->InstanceTemplate()->SetInternalFieldCount(2);
-		SuperClass->SetClassName(String::NewSymbol("ReadOnlyTemplate"));
-		SuperClass->InstanceTemplate()->SetNamedPropertyHandler(GetByName, NULL, NULL, NULL, NULL);
-		SuperClass->InstanceTemplate()->SetIndexedPropertyHandler(GetByIndex, NULL, NULL, NULL, Enum);
-		return scope.Close(SuperClass->GetFunction());
+		Local<Value> accessor =
+			info.This()->GetRealNamedPropertyInPrototypeChain(getter);
+		if (accessor.IsEmpty() || !accessor->IsFunction()) {
+			NanReturn(accessor);
+		}
+
+		int argc = 1;
+		Local<Value> argv[1];
+		argv[0] = Nan::New<Number>(index);
+		Local<Value> dynamicProperty =
+			accessor.As<Function>()->Call(info.This(), argc, argv);
+		String::Utf8Value res2(dynamicProperty->ToString());
+		NanReturn(dynamicProperty);
+	}
+
+	static NAN_PROPERTY_ENUMERATOR(Enum)
+	{
+		Nan::HandleScope scope;
+
+		Local<String> enumerator = Nan::New("__enum__").ToLocalChecked();
+		Handle<Value> accessor =
+			info.This()->GetRealNamedPropertyInPrototypeChain(enumerator);
+		if (accessor.IsEmpty() || !accessor->IsFunction()) {
+			NanReturn(Nan::New<Array>());
+		}
+		Local<Value> result =
+			accessor.As<Function>()->Call(info.This(), 0, NULL);
+		NanReturn(result.As<Array>());
+	}
+
+	static NAN_METHOD(CreateReadOnlyTemplate)
+	{
+		Nan::HandleScope scope;
+
+		Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
+		t->InstanceTemplate()->SetInternalFieldCount(2);
+		t->SetClassName(Nan::New("ReadOnlyTemplate").ToLocalChecked());
+		SetNamedPropertyHandler(t->InstanceTemplate(),
+								GetByName, NULL, NULL, NULL, NULL);
+		SetIndexedPropertyHandler(t->InstanceTemplate(),
+								  GetByIndex, NULL, NULL, NULL, Enum);
+
+		SuperClass.Reset(t->GetFunction());
+		NanReturn(t->GetFunction());
 	}
 };
 
-Persistent<FunctionTemplate> ReadOnlyTemplate::SuperClass;
+Nan::Persistent<Function> ReadOnlyTemplate::SuperClass;
 
 extern "C" {
-	static void init (Handle<Object> target)
+	static NAN_MODULE_INIT(init)
 	{
 		ReadOnlyTemplate::Init(target);
 	}
